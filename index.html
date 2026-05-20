@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深圳地鐵乘車路線查詢</title>
+    <style>
+        :root {
+            --bg: #f5f7fa; --card-bg: #ffffff; --primary: #1a73e8; --primary-hover: #1557b0;
+            --text: #333; --text-secondary: #666; --border: #e0e0e0; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg); color: var(--text); min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; padding: 20px;
+        }
+        .header { text-align: center; margin: 30px 0 20px; }
+        .header h1 { font-size: 2em; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+        .header p { color: var(--text-secondary); font-size: 0.95em; }
+        .container {
+            width: 100%; max-width: 700px; background: var(--card-bg); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 28px 24px; margin-bottom: 20px;
+        }
+        .input-group {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; position: relative;
+        }
+        .input-group label { font-weight: 600; min-width: 60px; color: var(--text); }
+        .search-box { flex: 1; min-width: 180px; position: relative; }
+        .search-box input {
+            width: 100%; padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px;
+            font-size: 1em; background: #fff; transition: border-color 0.2s; outline: none;
+        }
+        .search-box input:focus { border-color: var(--primary); }
+        .dropdown-list {
+            position: absolute; top: 100%; left: 0; right: 0; background: #fff;
+            border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow-y: auto;
+            z-index: 20; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; list-style: none; margin-top: 4px;
+        }
+        .dropdown-list.show { display: block; }
+        .dropdown-list li {
+            padding: 10px 14px; cursor: pointer; font-size: 0.95em; transition: background 0.15s;
+        }
+        .dropdown-list li:hover { background: #f0f7ff; color: var(--primary); }
+        .swap-btn {
+            background: var(--primary); color: #fff; border: none; width: 40px; height: 40px;
+            border-radius: 50%; font-size: 1.2em; cursor: pointer; flex-shrink: 0;
+            transition: transform 0.3s, background 0.2s; display: flex; align-items: center; justify-content: center;
+        }
+        .swap-btn:hover { background: var(--primary-hover); transform: rotate(180deg); }
+        .btn {
+            width: 100%; padding: 13px; background: var(--primary); color: #fff; border: none;
+            border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer;
+            transition: background 0.2s, transform 0.1s; letter-spacing: 0.5px;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:active { transform: scale(0.98); }
+        .result { margin-top: 24px; display: none; }
+        .result.show { display: block; }
+        .option-block {
+            background: #f8fafc; border: 2px solid var(--border); border-radius: 12px;
+            padding: 20px; margin-bottom: 20px;
+        }
+        .option-title {
+            font-size: 1.2em; font-weight: 700; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .option-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px;
+            font-size: 0.75em; font-weight: 700; color: #fff;
+        }
+        .badge-direct { background: #2e7d32; }
+        .badge-transfer { background: #e65100; }
+        .route-summary {
+            background: #f0f7ff; border-left: 4px solid var(--primary); padding: 14px 18px;
+            border-radius: 0 8px 8px 0; margin-bottom: 20px; font-weight: 600; color: var(--text);
+        }
+        .step-card {
+            background: #ffffff; border: 1px solid var(--border); border-radius: 10px;
+            padding: 16px; margin-bottom: 12px; position: relative; transition: box-shadow 0.2s;
+        }
+        .step-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .line-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px;
+            font-size: 0.85em; font-weight: 700; color: #fff; white-space: nowrap;
+        }
+        .direction-tag { background: #fff3e0; color: #e65100; padding: 4px 10px; border-radius: 14px; font-size: 0.85em; font-weight: 600; }
+        .transfer-badge { background: #e8f5e9; color: #2e7d32; padding: 4px 10px; border-radius: 14px; font-size: 0.85em; font-weight: 600; }
+        .step-route { font-size: 0.95em; color: var(--text-secondary); line-height: 1.6; }
+        .step-route strong { color: var(--text); }
+        .arrow { color: var(--primary); font-weight: bold; margin: 0 4px; }
+        .error-msg {
+            background: #fff3f3; border: 1px solid #ffcdd2; color: #c62828;
+            padding: 14px 18px; border-radius: 8px; margin-top: 16px; display: none;
+        }
+        .error-msg.show { display: block; }
+        .footer { text-align: center; color: #999; font-size: 0.8em; margin-top: 10px; }
+        .footer a { color: var(--primary); text-decoration: none; }
+        .hint-text { font-size: 0.8em; color: #666; margin-bottom: 12px; }
+        @media (max-width: 500px) {
+            .container { padding: 18px 14px; }
+            .input-group { flex-direction: column; align-items: stretch; }
+            .search-box { min-width: unset; width: 100%; }
+            .swap-btn { align-self: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚇 深圳地鐵 · 乘車路線查詢</h1>
+        <p>輸入起點與終點，自動提供「同線直達」與「最短路線」雙方案</p>
+    </div>
+    <div class="container">
+        <div class="input-group">
+            <label for="fromInput">出發站：</label>
+            <div class="search-box" id="fromSearchBox">
+                <input type="text" id="fromInput" placeholder="輸入站名關鍵字（支援繁體/簡體）…" autocomplete="off">
+                <ul class="dropdown-list" id="fromDropdown"></ul>
+            </div>
+        </div>
+        <div class="input-group" style="justify-content: center;">
+            <button class="swap-btn" id="swapBtn" title="交換起終點">⇅</button>
+        </div>
+        <div class="input-group">
+            <label for="toInput">目的站：</label>
+            <div class="search-box" id="toSearchBox">
+                <input type="text" id="toInput" placeholder="輸入站名關鍵字（支援繁體/簡體）…" autocomplete="off">
+                <ul class="dropdown-list" id="toDropdown"></ul>
+            </div>
+        </div>
+        <div class="hint-text">💡 提示：可輸入繁體或簡體中文，輸入部分字詞即可快速搜尋</div>
+        <button class="btn" id="searchBtn">🔍 查詢路線</button>
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="result" id="resultContainer"></div>
+    </div>
+    <div class="footer">
+        資料來源：深圳市交通運輸局 (2026年1月) | 僅供參考，請以實際營運為準<br>
+        <a href="https://jtys.sz.gov.cn/jtzx/wycx/dtcx/dtxl/content/post_12601089.html" target="_blank">官方線路資訊</a>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== 簡繁體轉換表 ====================
+            const simpToTrad = {};
+            const tradToSimp = {};
+            const charMap = [
+                ['罗','羅'],['国','國'],['贸','貿'],['剧','劇'],['华','華'],['强','強'],
+                ['岗','崗'],['厦','廈'],['会','會'],['购','購'],['园','園'],
+                ['车','車'],['庙','廟'],['侨','僑'],['东','東'],['湾','灣'],['门','門'],
+                ['机','機'],['场','場'],['线','線'],['号','號'],['龙','龍'],['环','環'],
+                ['宝','寶'],['体','體'],['丽','麗'],['莲','蓮'],['头','頭'],['盐','鹽'],
+                ['坝','壩'],['电','電'],['脑','腦'],['铁','鐵'],['马','馬'],['鱼','魚'],
+                ['红','紅'],['树','樹'],['叶','葉'],['学','學'],['医','醫'],['院','院'],
+                ['后','後'],['关','關'],['联','聯'],['发','發'],['广','廣'],
+                ['实','實'],['验','驗'],['开','開'],['创','創'],['业','業'],
+                ['滨','濱'],['海','海'],['梦','夢'],['怡','怡'],['荔','荔'],
+                ['林','林'],['油','油'],['书','書'],['城','城'],['深','深'],['粤','粵'],
+                ['高','高'],['新','新'],['下','下'],['沙','沙'],['香','香'],['梅','梅'],
+                ['景','景'],['田','田'],['福','福'],['花','花'],['儿','兒'],['北','北'],
+                ['黄','黃'],['贝','貝'],['岭','嶺'],['布','布'],['吉','吉'],['木','木'],
+                ['棉','棉'],['芬','芬'],['丹','丹'],['竹','竹'],['约','約'],['塘','塘'],
+                ['坑','坑'],['横','橫'],['永','永'],['湖','湖'],['荷','荷'],['坳','坳'],
+                ['运','運'],['爱','愛'],['祥','祥'],['南','南'],['双','雙'],['梨','梨'],
+                ['生','生'],['坪','坪'],['低','低'],['碳','碳'],['富','富'],['民','民'],
+                ['清','清'],['胜','勝'],['观','觀'],['澜','瀾'],['松','松'],['元','元'],
+                ['牛','牛'],['赤','赤'],['蛇','蛇'],['口','口'],['港','港'],['水','水'],
+                ['角','角'],['月','月'],['登','登'],['良','良'],['科','科'],['苑','苑'],
+                ['康','康'],['安','安'],['托','托'],['山','山'],['蜜','蜜'],
+                ['市','市'],['心','心'],['燕','燕'],['秀','秀'],['文','文'],
+                ['锦','錦'],['泥','泥'],['银','銀'],['笔','筆'],['架','架'],['雅','雅'],
+                ['公','公'],['灵','靈'],['芝','芝'],['兴','興'],['留','留'],['仙','仙'],
+                ['洞','洞'],['珠','珠'],['光','光'],['井','井'],['桃','桃'],['源','源'],
+                ['云','雲'],['农','農'],['皇','皇'],['岸','岸'],['尾','尾'],
+                ['笋','筍'],['洪','洪'],['太','太'],['怡','怡'],
+                ['铁','鐵'],['路','路'],['妈','媽'],['桂','桂'],['临','臨'],['翻','翻'],
+                ['身','身'],['浪','浪'],['朗','朗'],['长','長'],['陂','陂'],
+                ['治','治'],['五','五'],['和','和'],['坂','坂'],['杨','楊'],
+                ['上','上'],['径','徑'],['百','百'],['鸽','鴿'],['笼','籠'],
+                ['科','科'],['馆','館'],['通','通'],['体','體'],['八','八'],
+                ['卦','卦'],['翰','翰'],['关','關'],['芬','芬'],['元','元'],
+                ['阳','陽'],['台','台'],['官','官'],['圳','圳'],['凤','鳳'],
+                ['凰','凰'],['明','明'],['大','大'],['街','街'],['楼','樓'],
+                ['村','村'],['花','花'],['合','合'],['薯','薯'],['埔','埔'],
+                ['溪','溪'],['茶','茶'],['石','石'],
+                ['孖','孖'],['冬','冬'],['瓜','瓜'],
+                ['拥','擁'],['平','平'],['禾','禾'],['古','古'],['李','李'],
+                ['凉','涼'],['帽','帽'],['甘','甘'],['雪','雪'],['象','象'],
+                ['为','為'],['尔','爾'],['星','星'],
+                ['碧','碧'],['桥','橋'],['沙','沙'],['井','井'],['亭','亭'],
+                ['左','左'],['炮','炮'],['太','太'],['子','子'],['果','果'],
+                ['四','四'],['头','頭'],['古','古'],['中','中'],['同','同'],
+                ['乐','樂'],['川','川'],['流','流'],['客','客'],['运','運'],
+                ['站','站'],['峦','巒'],['乡','鄉'],['钟','鐘'],['屋','屋'],
+                ['兴','興'],['围','圍'],['怀','懷'],['德','德'],['展','展'],
+                ['园','園'],['蚝','蠔'],['墟','墟'],['步','步'],['涌','涌'],
+                ['朗','朗'],['口','口'],['才','才'],['鼓','鼓'],['应','應'],
+                ['罗','羅'],['租','租'],['岩','岩'],['田','田'],['梓','梓'],
+                ['锦','錦'],['宝','寶'],['嶂','嶂'],['背','背'],['芽','芽'],
+                ['技','技'],['术','術'],['燕','燕'],['壆','壆'],['纵','縱'],
+                ['纪','紀'],['念','念'],['环','環'],['盛','盛'],['尚','尚'],
+                ['回','回'],['埔','埔'],['愉','愉'],['阁','閣'],['金','金'],
+                ['源','源'],['溪','溪'],['安','安'],['康','康'],['福','福'],
+                ['良','良'],['西','西'],['坑','坑'],['国','國'],['会','會'],
+                ['城','城'],['沙','沙'],['尾','尾'],['湾','灣'],['滨','濱']
+            ];
+            charMap.forEach(([simp, trad]) => { simpToTrad[simp] = trad; tradToSimp[trad] = simp; });
+            function toTraditional(simp) { let r=''; for(const c of simp) r+=simpToTrad[c]||c; return r; }
+            function toSimplified(trad) { let r=''; for(const c of trad) r+=tradToSimp[c]||c; return r; }
+
+            // ==================== 地鐵線路資料 ====================
+            const LINE_DATA = {
+                '1號線': { name:'1號線 (羅寶線)', color:'#e3002b', stations:['罗湖','国贸','老街','大剧院','科学馆','华强路','岗厦','会展中心','购物公园','香蜜湖','车公庙','竹子林','侨城东','华侨城','世界之窗','白石洲','高新园','深大','桃园','大新','鲤鱼门','前海湾','新安','宝安中心','宝体','坪洲','西乡','固戍','后瑞','机场东'], dirUp:'機場東', dirDown:'羅湖' },
+                '2號線&8號線': { name:'2號線&8號線', color:'#db6d1c', stations:['赤湾','蛇口港','海上世界','水湾','东角头','湾厦','海月','登良','后海','科苑','红树湾','世界之窗','侨城北','深康','安托山','侨香','香蜜','香梅北','景田','莲花西','福田','市民中心','岗厦北','华强北','燕南','大剧院','湖贝','黄贝岭','新秀','莲塘口岸','仙湖路','莲塘','梧桐山南','沙头角','海山','盐田港西','深外高中','盐田路','鸿安围','盐田墟','大梅沙','小梅沙','溪涌'], dirUp:'溪涌', dirDown:'赤灣' },
+                '3號線': { name:'3號線 (龍崗線)', color:'#00a9e0', stations:['福保','益田','石厦','购物公园','福田','少年宫','莲花村','华新','通新岭','红岭','老街','晒布','翠竹','田贝','水贝','草埔','布吉','木棉湾','大芬','丹竹头','六约','塘坑','横岗','永湖','荷坳','大运','爱联','吉祥','龙城广场','南联','双龙','梨园','新生','坪西','低碳城','白石塘','富坪','坪地六联'], dirUp:'坪地六聯', dirDown:'福保' },
+                '4號線': { name:'4號線 (龍華線)', color:'#e3002b', stations:['福田口岸','福民','会展中心','市民中心','少年宫','莲花北','上梅林','民乐','白石龙','深圳北站','红山','上塘','龙胜','龙华','清湖','清湖北','竹村','茜坑','长湖','观澜','松元厦','观澜湖','牛湖'], dirUp:'牛湖', dirDown:'福田口岸' },
+                '5號線': { name:'5號線 (環中線)', color:'#a05eb5', stations:['赤湾','荔湾','铁路公园','妈湾','前湾公园','前湾','桂湾','前海湾','临海','宝华','宝安中心','翻身','灵芝','洪浪北','兴东','留仙洞','西丽','大学城','塘朗','长岭陂','深圳北','民治','五和','坂田','杨美','上水径','下水径','长龙','布吉','百鸽笼','布心','太安','怡景','黄贝岭','湖贝','东门','大剧院'], dirUp:'大劇院', dirDown:'赤灣' },
+                '6號線': { name:'6號線 (光明線)', color:'#009b77', stations:['科学馆','通新岭','体育中心','八卦岭','银湖','翰岭','梅林关','深圳北','红山','上芬','元芬','阳台山东','官田','上屋','长圳','凤凰城','光明大街','光明','科学公园','楼村','红花山','公明广场','合水口','薯田埔','松岗公园','溪头','松岗'], dirUp:'科學館', dirDown:'松崗' },
+                '6號線支線': { name:'6號線支線', color:'#009b77', stations:['深理工','中大','圳美','光明','碧眼','虹桥公园','光明城'], dirUp:'光明城', dirDown:'深理工' },
+                '7號線': { name:'7號線 (西麗線)', color:'#0035ad', stations:['深大丽湖','北大','西丽湖','西丽','茶光','珠光','龙井','桃源村','深云','安托山','农林','车公庙','上沙','沙尾','石厦','皇岗村','福民','皇岗口岸','赤尾','华强南','华强北','华新','黄木岗','八卦岭','红岭北','笋岗','洪湖','田贝','太安'], dirUp:'太安', dirDown:'深大麗湖' },
+                '9號線': { name:'9號線 (梅林線)', color:'#8d6e97', stations:['前湾','梦海','怡海','荔林','南油西','南油','南山书城','深大南','粤海门','高新南','红树湾南','深湾','深圳湾公园','下沙','车公庙','香梅','景田','梅景','下梅林','梅村','上梅林','孖岭','银湖','泥岗','红岭北','园岭','红岭','红岭南','鹿丹村','人民','向西村','文锦'], dirUp:'文錦', dirDown:'前灣' },
+                '10號線': { name:'10號線 (坂田線)', color:'#e2387b', stations:['双拥街','平湖','禾花','华南城','木古','上李朗','凉帽山','甘坑','雪象','岗头','华为','贝尔路','坂田北','五和','光雅园','南坑','雅宝','孖岭','冬瓜岭','莲花村','岗厦北','岗厦','福民','福田口岸'], dirUp:'雙擁街', dirDown:'福田口岸' },
+                '11號線': { name:'11號線 (機場快線)', color:'#6a2c8c', stations:['红岭南','华强南','福星','岗厦北','福田','车公庙','红树湾南','后海','南山','前海湾','宝安','碧海湾','机场','机场北','福永','桥头','塘尾','马安山','沙井','后亭','松岗','碧头'], dirUp:'紅嶺南', dirDown:'碧頭' },
+                '12號線': { name:'12號線 (南寶線)', color:'#7d3c98', stations:['左炮台东','太子湾','海上世界','花果山','四海','南油','南光','南山','桃园','南头古城','中山公园','同乐南','新安公园','灵芝','上川','流塘','宝安客运站','宝田一路','平峦山','西乡桃源','钟屋南','黄田','兴围','机场东','福围','怀德','福永','桥头西','福海西','国展','国展北','海上田园南','海上田园东','蚝乡','沙蚝','沙井古墟','步涌','朗下','松岗'], dirUp:'松崗', dirDown:'左炮台東' },
+                '13號線': { name:'13號線', color:'#e85339', stations:['深圳湾口岸','人才公园','后海','科苑','粤海门','深大','高新中','高新北','石鼓','留仙洞','百旺','应人石','罗租','石岩','上屋'], dirUp:'上屋', dirDown:'深圳灣口岸' },
+                '14號線': { name:'14號線 (東部快線)', color:'#a0a0a0', stations:['沙田','坑梓','坪山中心','坪山广场','坪山围','锦龙','宝龙','南约','嶂背','大运','坳背','四联','六约北','石芽岭','布吉','罗湖北','黄木岗','岗厦北'], dirUp:'崗廈北', dirDown:'沙田' },
+                '16號線': { name:'16號線 (龍坪線)', color:'#00a9a5', stations:['田心','技术大学','石井','燕子湖','沙壆','东纵纪念馆','坪环','坪山围','六和','新和','坪山','宝龙同乐','龙东','新塘围','双龙','龙园','盛平','尚景','回龙埔','愉园','黄阁坑','龙城公园','大运中心','大运','金源','吉溪','大安','园山','大康','福坑','安良','园山西坑'], dirUp:'田心', dirDown:'園山西坑' },
+                '20號線': { name:'20號線', color:'#45b8e0', stations:['机场北','国展南','国展','国展北','会展城'], dirUp:'會展城', dirDown:'機場北' }
+            };
+
+            const stationLinesMap = {};
+            const allStationsSimp = [];
+            for (const [lineKey, lineData] of Object.entries(LINE_DATA)) {
+                lineData.stations.forEach(station => {
+                    if (!stationLinesMap[station]) { stationLinesMap[station] = new Set(); allStationsSimp.push(station); }
+                    stationLinesMap[station].add(lineKey);
+                });
+            }
+            allStationsSimp.sort((a,b)=>a.localeCompare(b,'zh'));
+
+            const simpToTradMap = {};
+            const tradToSimpMap = {};
+            allStationsSimp.forEach(simp => {
+                const trad = toTraditional(simp);
+                simpToTradMap[simp] = trad;
+                tradToSimpMap[trad] = simp;
+            });
+
+            function findUniqueStation(input) {
+                if (!input) return null;
+                if (stationLinesMap[input]) return input;
+                const simp = tradToSimpMap[input];
+                if (simp && stationLinesMap[simp]) return simp;
+                const simpMatches = allStationsSimp.filter(s => s.includes(input));
+                if (simpMatches.length === 1) return simpMatches[0];
+                const tradInput = toSimplified(input);
+                const tradMatches = allStationsSimp.filter(s => s.includes(tradInput));
+                if (tradMatches.length === 1) return tradMatches[0];
+                const trad = toTraditional(input);
+                const tradToSimpMatches = allStationsSimp.filter(s => s.includes(trad));
+                if (tradToSimpMatches.length === 1) return tradToSimpMatches[0];
+                return null;
+            }
+
+            function searchStations(query) {
+                if (!query) return [];
+                const results = new Set();
+                allStationsSimp.forEach(s => { if (s.includes(query)) results.add(s); });
+                const simpQuery = toSimplified(query);
+                allStationsSimp.forEach(s => { if (s.includes(simpQuery)) results.add(s); });
+                allStationsSimp.forEach(s => { if (simpToTradMap[s].includes(query)) results.add(s); });
+                return Array.from(results).sort((a,b)=>a.localeCompare(b,'zh'));
+            }
+
+            function setupSearchBox(inputId, dropdownId) {
+                const input = document.getElementById(inputId);
+                const dropdown = document.getElementById(dropdownId);
+                input.addEventListener('input', () => {
+                    const query = input.value.trim();
+                    dropdown.innerHTML = '';
+                    if (query.length === 0) { dropdown.classList.remove('show'); return; }
+                    const matches = searchStations(query);
+                    if (matches.length === 0) { dropdown.classList.remove('show'); return; }
+                    matches.forEach(station => {
+                        const li = document.createElement('li');
+                        li.textContent = simpToTradMap[station];
+                        li.dataset.value = station;
+                        li.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            input.value = simpToTradMap[station];
+                            input.dataset.simpValue = station;
+                            dropdown.classList.remove('show');
+                            input.dispatchEvent(new Event('stationSelected'));
+                        });
+                        dropdown.appendChild(li);
+                    });
+                    dropdown.classList.add('show');
+                });
+                input.addEventListener('focus', () => {
+                    if (input.value.trim().length > 0 && dropdown.children.length > 0) dropdown.classList.add('show');
+                });
+                input.addEventListener('blur', () => setTimeout(() => dropdown.classList.remove('show'), 200));
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const first = dropdown.querySelector('li');
+                        if (first && dropdown.classList.contains('show')) first.click();
+                        else {
+                            const best = findUniqueStation(input.value.trim());
+                            if (best) {
+                                input.value = simpToTradMap[best];
+                                input.dataset.simpValue = best;
+                                input.dispatchEvent(new Event('stationSelected'));
+                            }
+                        }
+                    }
+                });
+                return input;
+            }
+
+            const fromInput = setupSearchBox('fromInput', 'fromDropdown');
+            const toInput = setupSearchBox('toInput', 'toDropdown');
+
+            document.getElementById('swapBtn').addEventListener('click', () => {
+                const tmpVal = fromInput.value; fromInput.value = toInput.value; toInput.value = tmpVal;
+                const tmpSimp = fromInput.dataset.simpValue; fromInput.dataset.simpValue = toInput.dataset.simpValue; toInput.dataset.simpValue = tmpSimp;
+            });
+
+            // ==================== 路線演算法 ====================
+            function buildGraph() {
+                const graph = {};
+                for (const station of allStationsSimp) graph[station] = [];
+                for (const [lineKey, lineData] of Object.entries(LINE_DATA)) {
+                    const stns = lineData.stations;
+                    for (let i = 0; i < stns.length - 1; i++) {
+                        const a = stns[i], b = stns[i+1];
+                        graph[a].push({ to: b, lineKey, direction: lineData.dirUp });
+                        graph[b].push({ to: a, lineKey, direction: lineData.dirDown });
+                    }
+                }
+                return graph;
+            }
+
+            function findDirectRoute(from, to) {
+                const fromLines = stationLinesMap[from];
+                const toLines = stationLinesMap[to];
+                for (const lineKey of fromLines) {
+                    if (toLines.has(lineKey)) {
+                        const lineData = LINE_DATA[lineKey];
+                        const stations = lineData.stations;
+                        const fromIdx = stations.indexOf(from);
+                        const toIdx = stations.indexOf(to);
+                        if (fromIdx !== -1 && toIdx !== -1) {
+                            const direction = fromIdx < toIdx ? lineData.dirUp : lineData.dirDown;
+                            const count = Math.abs(toIdx - fromIdx);
+                            return {
+                                success: true,
+                                path: [{
+                                    lineKey, lineName: lineData.name, color: lineData.color,
+                                    startStation: from, endStation: to, direction, count
+                                }],
+                                totalStations: count
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function findShortestRoute(from, to) {
+                if (from === to) return { success: true, path: [], totalStations: 0 };
+                const graph = buildGraph();
+                const visited = new Set();
+                const queue = [{ station: from, path: [], totalStations: 0 }];
+                visited.add(from);
+                while (queue.length > 0) {
+                    const current = queue.shift();
+                    for (const edge of graph[current.station] || []) {
+                        if (visited.has(edge.to)) continue;
+                        visited.add(edge.to);
+                        const newPath = current.path.map(step => ({...step}));
+                        const lastStep = newPath.length > 0 ? newPath[newPath.length-1] : null;
+                        if (lastStep && lastStep.lineKey === edge.lineKey) {
+                            newPath[newPath.length-1] = { ...lastStep, endStation: edge.to, count: lastStep.count + 1 };
+                        } else {
+                            newPath.push({
+                                lineKey: edge.lineKey, lineName: LINE_DATA[edge.lineKey].name,
+                                color: LINE_DATA[edge.lineKey].color,
+                                startStation: current.station, endStation: edge.to,
+                                direction: edge.direction, count: 1
+                            });
+                        }
+                        if (edge.to === to) return { success: true, path: newPath, totalStations: current.totalStations + 1 };
+                        queue.push({ station: edge.to, path: newPath, totalStations: current.totalStations + 1 });
+                    }
+                }
+                return { success: false, message: '無法到達' };
+            }
+
+            function routesAreSame(r1, r2) {
+                if (!r1 || !r2) return false;
+                if (r1.totalStations !== r2.totalStations) return false;
+                if (r1.path.length !== r2.path.length) return false;
+                for (let i=0; i<r1.path.length; i++) {
+                    if (r1.path[i].lineKey !== r2.path[i].lineKey) return false;
+                }
+                return true;
+            }
+
+            function getAllRoutes(from, to) {
+                const direct = findDirectRoute(from, to);
+                const shortest = findShortestRoute(from, to);
+                const result = [];
+                if (direct && direct.success) result.push({ type: 'direct', route: direct });
+                if (shortest && shortest.success) {
+                    if (!direct || !routesAreSame(direct, shortest)) {
+                        result.push({ type: 'shortest', route: shortest });
+                    }
+                }
+                if (result.length === 0 && shortest && !shortest.success) {
+                    return { success: false, message: shortest.message };
+                }
+                return { success: true, routes: result };
+            }
+
+            function renderResult(data) {
+                const container = document.getElementById('resultContainer');
+                const errorDiv = document.getElementById('errorMsg');
+                errorDiv.classList.remove('show');
+                container.classList.remove('show');
+                container.innerHTML = '';
+                if (!data.success) {
+                    errorDiv.textContent = data.message || '查詢失敗';
+                    errorDiv.classList.add('show');
+                    return;
+                }
+                const routes = data.routes;
+                if (routes.length === 0) {
+                    container.innerHTML = '<div class="route-summary">起點與終點相同，無需乘車。</div>';
+                    container.classList.add('show');
+                    return;
+                }
+                let html = '';
+                routes.forEach((item, index) => {
+                    const route = item.route;
+                    const isDirect = item.type === 'direct';
+                    const titleText = isDirect ? `🚆 方案 ${index+1}：同線直達` : `🔄 方案 ${index+1}：最短路線（需轉乘）`;
+                    const badgeClass = isDirect ? 'badge-direct' : 'badge-transfer';
+                    const badgeText = isDirect ? '0 次轉乘' : `${route.path.length-1} 次轉乘`;
+                    html += `<div class="option-block">
+                        <div class="option-title">
+                            ${titleText}
+                            <span class="option-badge ${badgeClass}">${badgeText}</span>
+                            <span style="font-size:0.9em; color:var(--text-secondary);">全程 ${route.totalStations} 站</span>
+                        </div>`;
+                    route.path.forEach((step, idx) => {
+                        const isTransfer = idx > 0;
+                        const transferInfo = isTransfer ? `<span class="transfer-badge">🔁 在「${simpToTradMap[step.startStation] || step.startStation}」換乘</span>` : '';
+                        html += `
+                            <div class="step-card">
+                                <div class="step-header">
+                                    <span class="line-badge" style="background:${step.color};">${step.lineName}</span>
+                                    <span class="direction-tag">🚆 往「${step.direction}」方向</span>
+                                    ${transferInfo}
+                                </div>
+                                <div class="step-route">
+                                    <strong>${simpToTradMap[step.startStation] || step.startStation}</strong>
+                                    <span class="arrow">→</span>
+                                    <strong>${simpToTradMap[step.endStation] || step.endStation}</strong>
+                                    &nbsp;（共 ${step.count} 站）
+                                </div>
+                            </div>`;
+                    });
+                    html += `</div>`;
+                });
+                container.innerHTML = html;
+                container.classList.add('show');
+            }
+
+            document.getElementById('searchBtn').addEventListener('click', () => {
+                let fromDisplay = fromInput.value.trim();
+                let toDisplay = toInput.value.trim();
+                const errorDiv = document.getElementById('errorMsg');
+                errorDiv.classList.remove('show');
+                if (!fromDisplay || !toDisplay) {
+                    errorDiv.textContent = '請輸入出發站和目的站';
+                    errorDiv.classList.add('show');
+                    return;
+                }
+                let from = fromInput.dataset.simpValue || findUniqueStation(fromDisplay);
+                let to = toInput.dataset.simpValue || findUniqueStation(toDisplay);
+                if (!from) {
+                    errorDiv.textContent = `「${fromDisplay}」找不到對應站點，請從下拉清單中選取`;
+                    errorDiv.classList.add('show');
+                    return;
+                }
+                if (!to) {
+                    errorDiv.textContent = `「${toDisplay}」找不到對應站點，請從下拉清單中選取`;
+                    errorDiv.classList.add('show');
+                    return;
+                }
+                fromInput.value = simpToTradMap[from] || from;
+                fromInput.dataset.simpValue = from;
+                toInput.value = simpToTradMap[to] || to;
+                toInput.dataset.simpValue = to;
+                const result = getAllRoutes(from, to);
+                renderResult(result);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && document.activeElement !== fromInput && document.activeElement !== toInput) {
+                    document.getElementById('searchBtn').click();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
