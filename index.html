@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>大灣區軌道查詢</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="灣區軌道查詢">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a73e8'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>🚇</text></svg>">
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%E7%81%A3%E5%8D%80%E8%BB%8C%E9%81%93%E6%9F%A5%E8%A9%A2%22%2C%22short_name%22%3A%22%E8%BB%8C%E9%81%93%E6%9F%A5%E8%A9%A2%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f5f7fa%22%2C%22theme_color%22%3A%22%231a73e8%22%7D">
+    <style>
+        :root { --bg: #f5f7fa; --card: #fff; --primary: #1a73e8; --primary-hover: #1557b0; --text: #333; --border: #e0e0e0; --radius: 12px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+        .header { text-align: center; margin: 20px 0 16px; }
+        .header h1 { font-size: 1.6em; color: var(--primary); }
+        .header .coverage { font-size: 0.8em; color: #666; margin-top: 6px; }
+        .container { max-width: 600px; margin: 0 auto; background: var(--card); border-radius: var(--radius); box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 20px 16px; }
+        .input-group { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; position: relative; }
+        .input-group label { font-weight: 600; min-width: 55px; font-size: 0.9em; }
+        .search-box { flex: 1; position: relative; }
+        .search-box input { width: 100%; padding: 10px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 1em; outline: none; background: #fff; transition: border-color 0.2s; }
+        .search-box input:focus { border-color: var(--primary); }
+        .dropdown-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 20; list-style: none; margin-top: 4px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .dropdown-list.show { display: block; }
+        .dropdown-list li { padding: 10px 14px; cursor: pointer; font-size: 0.95em; }
+        .dropdown-list li:hover { background: #f0f7ff; }
+        .swap-btn { background: var(--primary); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2em; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .btn { width: 100%; padding: 13px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:active { transform: scale(0.98); }
+        .result { margin-top: 16px; display: none; }
+        .result.show { display: block; }
+        .weather-card { background: #f0f7ff; border: 1px solid var(--primary); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; font-size: 0.85em; font-weight: 600; }
+        .weather-card .weather-item { display: flex; align-items: center; gap: 4px; }
+        .route-diagram { width: 100%; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+        .option-block { background: #f8fafc; border: 2px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+        .option-title { font-size: 1.1em; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .option-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.7em; font-weight: 700; color: #fff; }
+        .badge-direct { background: #2e7d32; }
+        .badge-transfer { background: #e65100; }
+        .step-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+        .step-header { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .line-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 700; color: #fff; }
+        .direction-tag { background: #fff3e0; color: #e65100; padding: 3px 8px; border-radius: 14px; font-size: 0.8em; }
+        .transfer-badge { background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 14px; font-size: 0.8em; }
+        .border-badge { background: #fff3e0; border: 1px solid #e65100; color: #e65100; padding: 3px 8px; border-radius: 14px; font-size: 0.8em; font-weight: 700; }
+        .step-route { font-size: 0.9em; color: #666; }
+        .time-estimate { font-size: 0.85em; color: var(--primary); font-weight: 600; margin-top: 4px; }
+        .error-msg { background: #fff3f3; color: #c62828; padding: 12px; border-radius: 8px; margin-top: 12px; display: none; }
+        .error-msg.show { display: block; }
+        .footer { text-align: center; color: #999; font-size: 0.7em; margin-top: 16px; }
+        .legend-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 16px; font-size: 0.75em; }
+        .legend-box h4 { margin-bottom: 8px; color: var(--primary); }
+        .legend-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .legend-square { width: 12px; height: 12px; display: inline-block; border: 2px solid #fff; outline: 1px solid #333; }
+        .pwa-hint { background: #fff3e0; border: 1px solid #ffcc02; color: #333; padding: 8px 12px; border-radius: 8px; font-size: 0.75em; margin-bottom: 12px; display: none; text-align: center; }
+        @media (display-mode: standalone) { .pwa-hint { display: none; } }
+        .time-btn { display: inline-block; margin-top: 8px; background: #f0f7ff; border: 1px solid var(--primary); color: var(--primary); padding: 5px 12px; border-radius: 16px; font-size: 0.8em; cursor: pointer; font-weight: 600; }
+        .time-btn:hover { background: var(--primary); color: #fff; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .modal-box { background: #fff; border-radius: 16px; padding: 24px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .modal-box h3 { margin-bottom: 12px; color: var(--primary); }
+        .modal-box .time-row { margin: 8px 0; font-size: 1.1em; }
+        .modal-box .time-label { font-weight: 700; }
+        .modal-box .close-btn { margin-top: 16px; background: var(--primary); color: #fff; border: none; padding: 8px 24px; border-radius: 20px; font-size: 0.9em; cursor: pointer; }
+        .nearby-box { background: #e8f5e9; border: 1px solid #2e7d32; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; text-align: center; font-weight: 600; color: #2e7d32; display: none; }
+        .nearby-box.show { display: block; }
+        .nearby-btn { background: #2e7d32; }
+        .nearby-btn:hover { background: #1b5e20; }
+        @media (max-width: 400px) { .input-group { flex-direction: column; align-items: stretch; } .swap-btn { align-self: center; } }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>🚇 大灣區軌道查詢</h1><div class="coverage">📍 查詢範圍：香港 · 深圳 · 廣州 · 佛山 · 中山 · 順德</div></div>
+    <div class="container">
+        <div class="pwa-hint" id="pwaHint">📲 點擊下方分享按鈕 → 「加入主畫面」即可像 App 一樣使用</div>
+        <div class="input-group"><label>出發站</label><div class="search-box"><input type="text" id="fromInput" placeholder="輸入站名（可繁/簡）" autocomplete="off"><ul class="dropdown-list" id="fromDropdown"></ul></div></div>
+        <div class="input-group" style="justify-content:center;"><button class="swap-btn" id="swapBtn">⇅</button></div>
+        <div class="input-group"><label>目的站</label><div class="search-box"><input type="text" id="toInput" placeholder="輸入站名（可繁/簡）" autocomplete="off"><ul class="dropdown-list" id="toDropdown"></ul></div></div>
+        <button class="btn" id="searchBtn">🔍 查詢路線</button>
+        <button class="btn nearby-btn" id="nearbyBtn">📍 附近車站</button>
+        <div class="nearby-box" id="nearbyResult"></div>
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="legend-box" id="legendBox" style="display:none;"><h4>📌 路線圖例</h4><div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#2e7d32;"></span> 起點站</span><span class="legend-item"><span class="legend-dot" style="background:#c62828;"></span> 終點站</span><span class="legend-item"><span class="legend-square" style="background:#333;"></span> 轉車站</span><span class="legend-item"><span class="legend-dot" style="background:#FFD700;"></span> 過關口岸</span><span class="legend-item"><span style="font-weight:700;color:#e65100;">🛂</span> 口岸過關</span></div></div>
+        <div class="result" id="resultContainer"></div>
+    </div>
+    <div class="footer">資料來源：深圳市交通運輸局 (2026年1月) · 部分線路為規劃/建設中<br>首末班車時間僅供參考，實際以車站公告為準 · 行車時間為估算值 · 定位僅供參考</div>
+
+    <script>
+        if (window.matchMedia('(display-mode: standalone)').matches === false) { document.getElementById('pwaHint').style.display = 'block'; }
+
+        (function() {
+            const simpToTrad = {}; const tradToSimp = {};
+            const charMap = [['罗','羅'],['国','國'],['贸','貿'],['剧','劇'],['华','華'],['强','強'],['岗','崗'],['厦','廈'],['会','會'],['购','購'],['园','園'],['车','車'],['庙','廟'],['侨','僑'],['东','東'],['湾','灣'],['门','門'],['机','機'],['场','場'],['线','線'],['号','號'],['龙','龍'],['环','環'],['宝','寶'],['体','體'],['丽','麗'],['莲','蓮'],['头','頭'],['盐','鹽'],['坝','壩'],['电','電'],['脑','腦'],['铁','鐵'],['马','馬'],['鱼','魚'],['红','紅'],['树','樹'],['叶','葉'],['学','學'],['医','醫'],['院','院'],['后','後'],['关','關'],['联','聯'],['发','發'],['广','廣'],['实','實'],['验','驗'],['开','開'],['创','創'],['业','業'],['滨','濱'],['海','海'],['梦','夢'],['怡','怡'],['荔','荔'],['林','林'],['油','油'],['书','書'],['城','城'],['深','深'],['粤','粵'],['高','高'],['新','新'],['下','下'],['沙','沙'],['香','香'],['梅','梅'],['景','景'],['田','田'],['福','福'],['花','花'],['儿','兒'],['北','北'],['黄','黃'],['贝','貝'],['岭','嶺'],['布','布'],['吉','吉'],['木','木'],['棉','棉'],['芬','芬'],['丹','丹'],['竹','竹'],['约','約'],['塘','塘'],['坑','坑'],['横','橫'],['永','永'],['湖','湖'],['荷','荷'],['坳','坳'],['运','運'],['爱','愛'],['祥','祥'],['南','南'],['双','雙'],['梨','梨'],['生','生'],['坪','坪'],['低','低'],['碳','碳'],['富','富'],['民','民'],['清','清'],['胜','勝'],['观','觀'],['澜','瀾'],['松','松'],['元','元'],['牛','牛'],['赤','赤'],['蛇','蛇'],['口','口'],['港','港'],['水','水'],['角','角'],['月','月'],['登','登'],['良','良'],['科','科'],['苑','苑'],['康','康'],['安','安'],['托','托'],['山','山'],['蜜','蜜'],['市','市'],['心','心'],['燕','燕'],['秀','秀'],['文','文'],['锦','錦'],['泥','泥'],['银','銀'],['笔','筆'],['架','架'],['雅','雅'],['公','公'],['灵','靈'],['芝','芝'],['兴','興'],['留','留'],['仙','仙'],['洞','洞'],['珠','珠'],['光','光'],['井','井'],['桃','桃'],['源','源'],['云','雲'],['农','農'],['皇','皇'],['岸','岸'],['尾','尾'],['笋','筍'],['洪','洪'],['太','太'],['怡','怡'],['铁','鐵'],['路','路'],['妈','媽'],['桂','桂'],['临','臨'],['翻','翻'],['身','身'],['浪','浪'],['朗','朗'],['长','長'],['陂','陂'],['治','治'],['五','五'],['和','和'],['坂','坂'],['杨','楊'],['上','上'],['径','徑'],['百','百'],['鸽','鴿'],['笼','籠'],['科','科'],['馆','館'],['通','通'],['体','體'],['八','八'],['卦','卦'],['翰','翰'],['芬','芬'],['元','元'],['阳','陽'],['台','台'],['官','官'],['圳','圳'],['凤','鳳'],['凰','凰'],['明','明'],['大','大'],['街','街'],['楼','樓'],['村','村'],['合','合'],['薯','薯'],['埔','埔'],['溪','溪'],['茶','茶'],['石','石'],['孖','孖'],['冬','冬'],['瓜','瓜'],['拥','擁'],['平','平'],['禾','禾'],['古','古'],['李','李'],['凉','涼'],['帽','帽'],['甘','甘'],['雪','雪'],['象','象'],['为','為'],['尔','爾'],['星','星'],['碧','碧'],['桥','橋'],['亭','亭'],['左','左'],['炮','炮'],['子','子'],['果','果'],['四','四'],['同','同'],['乐','樂'],['川','川'],['流','流'],['客','客'],['运','運'],['站','站'],['峦','巒'],['乡','鄉'],['钟','鐘'],['屋','屋'],['围','圍'],['怀','懷'],['德','德'],['展','展'],['蚝','蠔'],['墟','墟'],['步','步'],['涌','涌'],['口','口'],['才','才'],['鼓','鼓'],['应','應'],['租','租'],['岩','岩'],['梓','梓'],['锦','錦'],['寶','宝'],['嶂','嶂'],['背','背'],['芽','芽'],['技','技'],['术','術'],['燕','燕'],['壆','壆'],['纵','縱'],['纪','紀'],['念','念'],['盛','盛'],['尚','尚'],['回','回'],['愉','愉'],['阁','閣'],['金','金'],['源','源'],['溪','溪'],['康','康'],['良','良'],['坑','坑'],['伦','倫'],['教','教'],['顺','順'],['钟','鐘'],['磡','磡'],['旺','旺'],['九','九'],['炭','炭'],['墟','墟'],['粉','粉'],['岭','嶺'],['洲','洲'],['落','落'],['尖','尖'],['咀','咀'],['佐','佐'],['敦','敦'],['油','油'],['麻','麻'],['地','地'],['埗','埗'],['荔','荔'],['枝','枝'],['美','美'],['孚','孚'],['葵','葵'],['芳','芳'],['兴','興'],['窝','窩'],['荃','荃'],['观','觀'],['调','調'],['蓝','藍'],['牛','牛'],['彩','彩'],['虹','虹'],['钻','鑽'],['黄','黃'],['大','大'],['仙','仙'],['乐','樂'],['富','富'],['硤','硤'],['何','何'],['坚','堅'],['尼','尼'],['营','營'],['盘','盤'],['环','環'],['中','中'],['湾','灣'],['仔','仔'],['铜','銅'],['锣','鑼'],['天','天'],['后','後'],['炮','炮'],['鰂','鰂'],['涌','涌'],['古','古'],['西','西'],['河','河'],['筲','筲'],['箕','箕'],['杏','杏'],['邨','邨'],['柴','柴'],['将','將'],['军','軍'],['澳','澳'],['宝','寶'],['琳','琳'],['康','康'],['东','東'],['涌','涌'],['奥','奧'],['运','運'],['南','南'],['昌','昌'],['青','青'],['衣','衣'],['欣','欣'],['屯','屯'],['兆','兆'],['朗','朗'],['屏','屏'],['元','元'],['锦','錦'],['上','上'],['荃','荃'],['西','西'],['柯','柯'],['士','士'],['甸','甸'],['尖','尖'],['红','紅'],['磡','磡'],['何','何'],['文','文'],['土','土'],['瓜','瓜'],['宋','宋'],['皇','皇'],['臺','臺'],['启','啟'],['德','德'],['显','顯'],['径','徑'],['围','圍'],['第','第'],['一','一'],['城','城'],['石','石'],['大','大'],['水','水'],['恒','恆'],['安','安'],['马','馬'],['鞍','鞍'],['乌','烏'],['溪','溪'],['沙','沙'],['海','海'],['怡','怡'],['半','半'],['岛','島'],['黄','黃'],['竹','竹'],['利','利']];
+            charMap.forEach(([s, t]) => { simpToTrad[s] = t; tradToSimp[t] = s; });
+            function toTrad(s) { let r = ''; for (const c of s) r += simpToTrad[c] || c; return r; }
+            function toSimp(t) { let r = ''; for (const c of t) r += tradToSimp[t] || c; return r; }
+
+            // 定義口岸站（內部名稱）
+            const BORDER_STATIONS = new Set(['罗湖(香港)','罗湖(深圳)','落马洲']);
+            const BORDER_LINKS = [
+                { from: '罗湖(香港)', to: '罗湖(深圳)', fromLine: '东铁线-罗湖', toLine: '1號線', label: '羅湖口岸', time: 15 },
+                { from: '落马洲', to: '福田口岸', fromLine: '东铁线-落马洲', toLine: '4號線', label: '福田口岸', time: 15 },
+                { from: '落马洲', to: '福田口岸', fromLine: '东铁线-落马洲', toLine: '10號線', label: '福田口岸', time: 15 }
+            ];
+
+            const WEATHER_EMOJI = {'晴':'☀️','Sunny':'☀️','Clear':'☀️','多云':'⛅','Partly cloudy':'⛅','Cloudy':'☁️','阴':'☁️','Overcast':'☁️','小雨':'🌧️','Light rain':'🌧️','雨':'🌧️','Rain':'🌧️','雷雨':'⛈️','Thunderstorm':'⛈️','雪':'❄️','Snow':'❄️'};
+            function getWeatherEmoji(desc){for(const [k,e] of Object.entries(WEATHER_EMOJI)){if(desc.includes(k))return e;}return '🌤️';}
+
+            const LINE_DATA = {
+                '荃湾线':{name:'荃灣線',color:'#FF0000',stations:['中环','金钟','尖沙咀','佐敦','油麻地','旺角','太子','深水埗','长沙湾','荔枝角','美孚','荔景','葵芳','葵兴','大窝口','荃湾'],dirUp:'荃灣',dirDown:'中環',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '观塘线':{name:'觀塘線',color:'#00A650',stations:['调景岭','油塘','蓝田','观塘','牛头角','九龙湾','彩虹','钻石山','黄大仙','乐富','九龙塘','石硤尾','太子','旺角','油麻地','何文田','黄埔'],dirUp:'黃埔',dirDown:'調景嶺',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '港岛线':{name:'港島線',color:'#0071BC',stations:['坚尼地城','香港大学','西营盘','上环','中环','金钟','湾仔','铜锣湾','天后','炮台山','北角','鰂鱼涌','太古','西湾河','筲箕湾','杏花邨','柴湾'],dirUp:'柴灣',dirDown:'堅尼地城',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '将军澳线':{name:'將軍澳線',color:'#714099',stations:['北角','鰂鱼涌','油塘','调景岭','将军澳','坑口','宝琳','康城'],dirUp:'寶琳/康城',dirDown:'北角',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '东涌线':{name:'東涌線',color:'#F5902E',stations:['香港','九龙','奥运','南昌','荔景','青衣','欣澳','东涌'],dirUp:'東涌',dirDown:'香港',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '屯马线':{name:'屯馬線',color:'#923011',stations:['屯门','兆康','天水围','朗屏','元朗','锦上路','荃湾西','美孚','南昌','柯士甸','尖东','红磡','何文田','土瓜湾','宋皇臺','启德','钻石山','显径','大围','车公庙(香港)','沙田围','第一城','石门','大水坑','恒安','马鞍山','乌溪沙'],dirUp:'烏溪沙',dirDown:'屯門',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '南港岛线':{name:'南港島線',color:'#B5C400',stations:['金钟','海洋公园','黄竹坑','利东','海怡半岛'],dirUp:'海怡半島',dirDown:'金鐘',schedule:{toUp:{first:'06:00',last:'00:30'},toDown:{first:'06:00',last:'00:30'}},type:'metro'},
+                '东铁线-罗湖':{name:'東鐵綫(羅湖)',color:'#53B7E8',stations:['金钟','会展','红磡','旺角东','九龙塘','大围','沙田','火炭','大学','大埔墟','太和','粉岭','上水','罗湖(香港)'],dirUp:'羅湖(香港)',dirDown:'金鐘',schedule:{toUp:{first:'05:30',last:'23:00'},toDown:{first:'05:30',last:'00:30'}},type:'metro'},
+                '东铁线-落马洲':{name:'東鐵綫(落馬洲)',color:'#53B7E8',stations:['金钟','会展','红磡','旺角东','九龙塘','大围','沙田','火炭','大学','大埔墟','太和','粉岭','上水','落马洲'],dirUp:'落馬洲',dirDown:'金鐘',schedule:{toUp:{first:'05:30',last:'22:30'},toDown:{first:'05:30',last:'00:30'}},type:'metro'},
+                '1號線':{name:'1號線(羅寶線)',color:'#e3002b',stations:['罗湖(深圳)','国贸','老街','大剧院','科学馆','华强路','岗厦','会展中心','购物公园','香蜜湖','车公庙(深圳)','竹子林','侨城东','华侨城','世界之窗','白石洲','高新园','深大','桃园','大新','鲤鱼门','前海湾','新安','宝安中心','宝体','坪洲','西乡','固戍','后瑞','机场东'],dirUp:'機場東',dirDown:'羅湖(深圳)',schedule:{toUp:{first:'06:20',last:'23:00'},toDown:{first:'06:21',last:'23:00'}},type:'metro'},
+                '2&8':{name:'2號線&8號線',color:'#db6d1c',stations:['赤湾','蛇口港','海上世界','水湾','东角头','湾厦','海月','登良','后海','科苑','红树湾','世界之窗','侨城北','深康','安托山','侨香','香蜜','香梅北','景田','莲花西','福田','市民中心','岗厦北','华强北','燕南','大剧院','湖贝','黄贝岭','新秀','莲塘口岸','仙湖路','莲塘','梧桐山南','沙头角','海山','盐田港西','深外高中','盐田路','鸿安围','盐田墟','大梅沙','小梅沙','溪涌'],dirUp:'溪涌',dirDown:'赤灣',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:00',last:'23:00'}},type:'metro'},
+                '3號線':{name:'3號線(龍崗線)',color:'#00a9e0',stations:['福保','益田','石厦','购物公园','福田','少年宫','莲花村','华新','通新岭','红岭','老街','晒布','翠竹','田贝','水贝','草埔','布吉','木棉湾','大芬','丹竹头','六约','塘坑','横岗','永湖','荷坳','大运','爱联','吉祥','龙城广场','南联','双龙','梨园','新生','坪西','低碳城','白石塘','富坪','坪地六联'],dirUp:'坪地六聯',dirDown:'福保',schedule:{toUp:{first:'06:12',last:'23:00'},toDown:{first:'06:05',last:'23:00'}},type:'metro'},
+                '4號線':{name:'4號線(龍華線)',color:'#e3002b',stations:['福田口岸','福民','会展中心','市民中心','少年宫','莲花北','上梅林','民乐','白石龙','深圳北站','红山','上塘','龙胜','龙华','清湖','清湖北','竹村','茜坑','长湖','观澜','松元厦','观澜湖','牛湖'],dirUp:'牛湖',dirDown:'福田口岸',schedule:{toUp:{first:'06:10',last:'23:00'},toDown:{first:'06:20',last:'23:00'}},type:'metro'},
+                '5號線':{name:'5號線(環中線)',color:'#a05eb5',stations:['赤湾','荔湾','铁路公园','妈湾','前湾公园','前湾','桂湾','前海湾','临海','宝华','宝安中心','翻身','灵芝','洪浪北','兴东','留仙洞','西丽','大学城','塘朗','长岭陂','深圳北','民治','五和','坂田','杨美','上水径','下水径','长龙','布吉','百鸽笼','布心','太安','怡景','黄贝岭','湖贝','东门','大剧院'],dirUp:'大劇院',dirDown:'赤灣',schedule:{toUp:{first:'06:10',last:'23:00'},toDown:{first:'06:09',last:'23:00'}},type:'metro'},
+                '6號線':{name:'6號線(光明線)',color:'#009b77',stations:['科学馆','通新岭','体育中心','八卦岭','银湖','翰岭','梅林关','深圳北','红山','上芬','元芬','阳台山东','官田','上屋','长圳','凤凰城','光明大街','光明','科学公园','楼村','红花山','公明广场','合水口','薯田埔','松岗公园','溪头','松岗'],dirUp:'科學館',dirDown:'松崗',schedule:{toUp:{first:'06:02',last:'23:00'},toDown:{first:'06:10',last:'23:00'}},type:'metro'},
+                '6支':{name:'6號線支線',color:'#009b77',stations:['深理工','中大','圳美','光明','碧眼','虹桥公园','光明城'],dirUp:'光明城',dirDown:'深理工',schedule:{toUp:{first:'06:05',last:'23:00'},toDown:{first:'06:10',last:'23:00'}},type:'metro'},
+                '7號線':{name:'7號線(西麗線)',color:'#0035ad',stations:['深大丽湖','北大','西丽湖','西丽','茶光','珠光','龙井','桃源村','深云','安托山','农林','车公庙(深圳)','上沙','沙尾','石厦','皇岗村','福民','皇岗口岸','赤尾','华强南','华强北','华新','黄木岗','八卦岭','红岭北','笋岗','洪湖','田贝','太安'],dirUp:'太安',dirDown:'深大麗湖',schedule:{toUp:{first:'06:14',last:'23:00'},toDown:{first:'06:15',last:'23:00'}},type:'metro'},
+                '9號線':{name:'9號線(梅林線)',color:'#8d6e97',stations:['前湾','梦海','怡海','荔林','南油西','南油','南山书城','深大南','粤海门','高新南','红树湾南','深湾','深圳湾公园','下沙','车公庙(深圳)','香梅','景田','梅景','下梅林','梅村','上梅林','孖岭','银湖','泥岗','红岭北','园岭','红岭','红岭南','鹿丹村','人民','向西村','文锦'],dirUp:'文錦',dirDown:'前灣',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:00',last:'23:00'}},type:'metro'},
+                '10號線':{name:'10號線(坂田線)',color:'#e2387b',stations:['双拥街','平湖','禾花','华南城','木古','上李朗','凉帽山','甘坑','雪象','岗头','华为','贝尔路','坂田北','五和','光雅园','南坑','雅宝','孖岭','冬瓜岭','莲花村','岗厦北','岗厦','福民','福田口岸'],dirUp:'雙擁街',dirDown:'福田口岸',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:05',last:'23:00'}},type:'metro'},
+                '11號線':{name:'11號線(機場快線)',color:'#6a2c8c',stations:['红岭南','华强南','福星','岗厦北','福田','车公庙(深圳)','红树湾南','后海','南山','前海湾','宝安','碧海湾','机场','机场北','福永','桥头','塘尾','马安山','沙井','后亭','松岗','碧头'],dirUp:'紅嶺南',dirDown:'碧頭',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:30',last:'23:00'}},type:'express'},
+                '12號線':{name:'12號線(南寶線)',color:'#7d3c98',stations:['左炮台东','太子湾','海上世界','花果山','四海','南油','南光','南山','桃园','南头古城','中山公园','同乐南','新安公园','灵芝','上川','流塘','宝安客运站','宝田一路','平峦山','西乡桃源','钟屋南','黄田','兴围','机场东','福围','怀德','福永','桥头西','福海西','国展','国展北','海上田园南','海上田园东','蚝乡','沙蚝','沙井古墟','步涌','朗下','松岗'],dirUp:'松崗',dirDown:'左炮台東',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:05',last:'23:00'}},type:'metro'},
+                '13號線':{name:'13號線',color:'#e85339',stations:['深圳湾口岸','人才公园','后海','科苑','粤海门','深大','高新中','高新北','石鼓','留仙洞','百旺','应人石','罗租','石岩','上屋'],dirUp:'上屋',dirDown:'深圳灣口岸',schedule:{toUp:{first:'06:30',last:'23:00'},toDown:{first:'06:30',last:'23:00'}},type:'metro'},
+                '14號線':{name:'14號線(東部快線)',color:'#a0a0a0',stations:['沙田','坑梓','坪山中心','坪山广场','坪山围','锦龙','宝龙','南约','嶂背','大运','坳背','四联','六约北','石芽岭','布吉','罗湖北','黄木岗','岗厦北'],dirUp:'崗廈北',dirDown:'沙田',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:05',last:'23:00'}},type:'express'},
+                '16號線':{name:'16號線(龍坪線)',color:'#00a9a5',stations:['田心','技术大学','石井','燕子湖','沙壆','东纵纪念馆','坪环','坪山围','六和','新和','坪山','宝龙同乐','龙东','新塘围','双龙','龙园','盛平','尚景','回龙埔','愉园','黄阁坑','龙城公园','大运中心','大运','金源','吉溪','大安','园山','大康','福坑','安良','园山西坑'],dirUp:'田心',dirDown:'園山西坑',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:05',last:'23:00'}},type:'metro'},
+                '20號線':{name:'20號線',color:'#45b8e0',stations:['机场北','国展南','国展','国展北','会展城'],dirUp:'會展城',dirDown:'機場北',schedule:{toUp:{first:'06:30',last:'23:00'},toDown:{first:'06:30',last:'23:00'}},type:'metro'},
+                '广深港高铁':{name:'廣深港高鐵',color:'#1E3A8A',stations:['深圳北站','福田','广州南站'],dirUp:'廣州南站',dirDown:'深圳北站',schedule:null,type:'hsr'},
+                '广珠城际':{name:'廣珠城際',color:'#8B4513',stations:['广州南站','碧江','北滘','顺德','顺德学院','容桂','南头','小榄','东升','中山北','中山','南朗','翠亨'],dirUp:'翠亨',dirDown:'廣州南站',schedule:null,type:'intercity'},
+                '佛山3号线':{name:'佛山3號線',color:'#03329F',stations:['顺德学院站','顺德欢乐海岸','顺德一中','驹荣北路','东乐路','大良钟楼','环市北','顺德人民医院','荔村','伦教','广教','北滘公园','高村','北滘西站','潭洲会展','岳步','大墩','东平','湾华','桂城'],dirUp:'桂城',dirDown:'順德學院站',schedule:{toUp:{first:'06:07',last:'23:17'},toDown:{first:'06:02',last:'23:52'}},type:'metro'},
+                '广佛线':{name:'廣佛線',color:'#C4D600',stations:['新城东','东平','世纪莲','澜石','魁奇路','季华园','同济路','祖庙','普君北路','朝安','桂城','南桂路','雷岗','千灯湖','金融高新区','龙溪','菊树','西塱','鹤洞','沙涌','沙园','燕岗','石溪','南洲','沥滘'],dirUp:'瀝滘',dirDown:'新城東',schedule:{toUp:{first:'06:00',last:'22:30'},toDown:{first:'06:00',last:'23:00'}},type:'metro'},
+                '广州1号线':{name:'廣州1號線',color:'#F3D03E',stations:['西塱','坑口','花地湾','芳村','黄沙','长寿路','陈家祠','西门口','公园前','农讲所','烈士陵园','东山口','杨箕','体育西路','体育中心','广州东站'],dirUp:'廣州東站',dirDown:'西塱',schedule:{toUp:{first:'06:00',last:'22:55'},toDown:{first:'06:10',last:'23:30'}},type:'metro'},
+                '广州2号线':{name:'廣州2號線',color:'#00629B',stations:['广州南站','石壁','会江','南浦','洛溪','南洲','东晓南','江泰路','昌岗','江南西','市二宫','海珠广场','公园前','纪念堂','越秀公园','广州火车站','三元里','飞翔公园','白云公园','白云文化广场','萧岗','江夏','黄边','嘉禾望岗'],dirUp:'嘉禾望崗',dirDown:'廣州南站',schedule:{toUp:{first:'06:00',last:'23:30'},toDown:{first:'06:00',last:'23:35'}},type:'metro'},
+                '广州3号线':{name:'廣州3號線',color:'#ECA154',stations:['番禺广场','市桥','汉溪长隆','大石','厦滘','沥滘','大塘','客村','广州塔','珠江新城','体育西路','石牌桥','岗顶','华师','五山','天河客运站'],dirUp:'天河客運站',dirDown:'番禺廣場',schedule:{toUp:{first:'06:00',last:'22:55'},toDown:{first:'06:10',last:'23:30'}},type:'metro'},
+                '广州5号线':{name:'廣州5號線',color:'#C5003E',stations:['滘口','坦尾','中山八','西场','西村','广州火车站','小北','淘金','区庄','动物园','杨箕','五羊邨','珠江新城','猎德','潭村','员村','科韵路','车陂南','东圃','三溪','鱼珠','大沙地','大沙东','文冲'],dirUp:'文沖',dirDown:'滘口',schedule:{toUp:{first:'06:00',last:'22:55'},toDown:{first:'06:15',last:'23:15'}},type:'metro'},
+                '广州7号线':{name:'廣州7號線',color:'#97D700',stations:['美的大道','北滘公园','美的','南涌','锦龙','陈村','陈村北','大洲','广州南站','石壁','谢村','钟村','汉溪长隆','南村万博','员岗','板桥','大学城南'],dirUp:'大學城南',dirDown:'美的大道',schedule:{toUp:{first:'06:00',last:'22:45'},toDown:{first:'06:00',last:'23:10'}},type:'metro'},
+                '广州8号线':{name:'廣州8號線',color:'#008C95',stations:['滘心','亭岗','石井','小坪','石潭','聚龙','上步','同德','鹅掌坦','西村','彩虹桥','陈家祠','华林寺','文化公园','同福西','凤凰新村','沙园','宝岗大道','昌岗','晓港','中大','鹭江','客村','赤岗','磨碟沙','新港东','琶洲','万胜围'],dirUp:'萬勝圍',dirDown:'滘心',schedule:{toUp:{first:'06:00',last:'23:00'},toDown:{first:'06:00',last:'22:55'}},type:'metro'}
+            };
+
+            const TYPE_AVG_TIME = {metro:2.5, express:3.0, intercity:4.5, hsr:5.0, border:15};
+            const STATION_CITY = {};
+            for (const [k,d] of Object.entries(LINE_DATA)) {
+                let city = '深圳';
+                if (k.startsWith('广州') || k==='广佛线'||k==='广深港高铁'||k==='广珠城际') city = '廣州';
+                else if (k.startsWith('佛山')) city = '佛山';
+                else if (k.startsWith('东铁') || ['荃湾线','观塘线','港岛线','将军澳线','东涌线','屯马线','南港岛线'].includes(k)) city = '香港';
+                else if (k==='广珠城际') city = '中山';
+                d.stations.forEach(s=>{if(!STATION_CITY[s]) STATION_CITY[s] = city;});
+            }
+            STATION_CITY['罗湖(深圳)']='深圳'; STATION_CITY['罗湖(香港)']='香港'; STATION_CITY['落马洲']='香港'; STATION_CITY['福田']='深圳'; STATION_CITY['深圳北站']='深圳'; STATION_CITY['广州南站']='廣州';
+            function getCityFromStation(s){return STATION_CITY[s]||'深圳';}
+
+            const stationLines = {}; const stationsAll = [];
+            for (const [k,d] of Object.entries(LINE_DATA)) { d.stations.forEach(s=>{if(!stationLines[s]){stationLines[s]=new Set();stationsAll.push(s);} stationLines[s].add(k);}); }
+            stationsAll.sort((a,b)=>a.localeCompare(b,'zh'));
+            const simpToTradMap={}; const tradToSimpMap={};
+            stationsAll.forEach(s=>{const t=toTrad(s);simpToTradMap[s]=t;tradToSimpMap[t]=s;});
+
+            function findStation(input){
+                if(!input)return null;
+                if(stationLines[input])return input;
+                const s=tradToSimpMap[input]; if(s&&stationLines[s])return s;
+                const c=toSimp(input); if(c!==input&&stationLines[c])return c;
+                const t=toTrad(input); if(t!==input&&tradToSimpMap[t])return tradToSimpMap[t];
+                const m1=stationsAll.filter(x=>x.includes(input)); if(m1.length===1)return m1[0];
+                const m2=stationsAll.filter(x=>x.includes(c)); if(m2.length===1)return m2[0];
+                const m3=stationsAll.filter(x=>simpToTradMap[x].includes(input)); if(m3.length===1)return m3[0];
+                return null;
+            }
+            function searchStations(q){
+                if(!q)return[];
+                const r=new Set(); const sq=toSimp(q); const tq=toTrad(q);
+                stationsAll.forEach(s=>{const tn=simpToTradMap[s]; if(s.includes(q)||s.includes(sq)||tn.includes(q)||tn.includes(tq))r.add(s);});
+                return Array.from(r).sort((a,b)=>a.localeCompare(b,'zh'));
+            }
+            function setupBox(iid,did){
+                const inp=document.getElementById(iid), dd=document.getElementById(did);
+                inp.addEventListener('input',()=>{
+                    const q=inp.value.trim(); dd.innerHTML='';
+                    if(!q){dd.classList.remove('show');return;}
+                    const matches=searchStations(q);
+                    if(!matches.length){dd.classList.remove('show');return;}
+                    matches.forEach(s=>{const li=document.createElement('li');li.textContent=simpToTradMap[s];li.dataset.value=s;li.addEventListener('mousedown',e=>{e.preventDefault();inp.value=simpToTradMap[s];inp.dataset.simpValue=s;dd.classList.remove('show');});dd.appendChild(li);});
+                    dd.classList.add('show');
+                });
+                inp.addEventListener('focus',()=>{if(inp.value.trim()&&dd.children.length)dd.classList.add('show');});
+                inp.addEventListener('blur',()=>setTimeout(()=>dd.classList.remove('show'),200));
+                inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=dd.querySelector('li');if(f&&dd.classList.contains('show'))f.click();}});
+                return inp;
+            }
+            const fromInp=setupBox('fromInput','fromDropdown'), toInp=setupBox('toInput','toDropdown');
+            document.getElementById('swapBtn').addEventListener('click',()=>{const tv=fromInp.value;fromInp.value=toInp.value;toInp.value=tv;const ts=fromInp.dataset.simpValue;fromInp.dataset.simpValue=toInp.dataset.simpValue;toInp.dataset.simpValue=ts;});
+
+            function buildGraph(){
+                const g={};
+                stationsAll.forEach(s=>g[s]=[]);
+                for(const [k,d] of Object.entries(LINE_DATA)){
+                    for(let i=0;i<d.stations.length-1;i++){
+                        const a=d.stations[i],b=d.stations[i+1];
+                        g[a].push({to:b,lineKey:k,direction:d.dirUp,type:'metro'});
+                        g[b].push({to:a,lineKey:k,direction:d.dirDown,type:'metro'});
+                    }
+                }
+                for(const link of BORDER_LINKS){
+                    g[link.from].push({to:link.to,lineKey:'__BORDER__',direction:link.label,type:'border',borderLabel:link.label});
+                    g[link.to].push({to:link.from,lineKey:'__BORDER__',direction:link.label,type:'border',borderLabel:link.label});
+                }
+                return g;
+            }
+
+            function findDirect(from,to){const fl=stationLines[from],tl=stationLines[to];for(const lk of fl){if(tl.has(lk)){const ld=LINE_DATA[lk],st=ld.stations,fi=st.indexOf(from),ti=st.indexOf(to);if(fi!==-1&&ti!==-1){const dir=fi<ti?ld.dirUp:ld.dirDown,cnt=Math.abs(ti-fi);return{success:true,path:[{lineKey:lk,lineName:ld.name,color:ld.color,startStation:from,endStation:to,direction:dir,count:cnt,type:'metro'}],totalStations:cnt};}}}return null;}
+            function findShortest(from,to){if(from===to)return{success:true,path:[],totalStations:0};const g=buildGraph(),visited=new Set();visited.add(from);const q=[{station:from,path:[],totalStations:0}];while(q.length){const cur=q.shift();for(const e of g[cur.station]||[]){if(visited.has(e.to))continue;visited.add(e.to);const np=cur.path.map(s=>({...s}));if(e.type==='border'){np.push({lineKey:'__BORDER__',lineName:'🛂口岸過關',color:'#FFD700',startStation:cur.station,endStation:e.to,direction:e.borderLabel||'口岸過關',count:0,type:'border'});}else{const last=np.length?np[np.length-1]:null;if(last&&last.lineKey===e.lineKey&&last.type!=='border'){np[np.length-1]={...last,endStation:e.to,count:last.count+1};}else{np.push({lineKey:e.lineKey,lineName:LINE_DATA[e.lineKey].name,color:LINE_DATA[e.lineKey].color,startStation:cur.station,endStation:e.to,direction:e.direction,count:1,type:'metro'});}}if(e.to===to)return{success:true,path:np,totalStations:cur.totalStations+(e.type==='border'?0:1)};q.push({station:e.to,path:np,totalStations:cur.totalStations+(e.type==='border'?0:1)});}}return{success:false,message:'無法到達'};}
+            function routesSame(r1,r2){if(!r1||!r2)return false;if(r1.totalStations!==r2.totalStations||r1.path.length!==r2.path.length)return false;return r1.path.every((s,i)=>s.lineKey===r2.path[i].lineKey);}
+            function getAllRoutes(from,to){const d=findDirect(from,to),s=findShortest(from,to);const res=[];if(d&&d.success)res.push({type:'direct',route:d});if(s&&s.success&&(!d||!routesSame(d,s)))res.push({type:'shortest',route:s});if(!res.length&&s&&!s.success)return{success:false,message:s.message};return{success:true,routes:res};}
+
+            function drawDiagram(route,canvas){const path=route.path;if(!path.length)return;const nodes=[path[0].startStation];path.forEach(s=>nodes.push(s.endStation));const segColors=path.map(s=>s.type==='border'?'#FFD700':s.color);const ctx=canvas.getContext('2d'),dpr=window.devicePixelRatio||1,W=canvas.clientWidth,H=140;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.scale(dpr,dpr);const pad=40,topY=H/2,count=nodes.length,stepX=count>1?(W-2*pad)/(count-1):0;ctx.lineWidth=5;for(let i=0;i<count-1;i++){const x1=pad+i*stepX,x2=pad+(i+1)*stepX;ctx.beginPath();ctx.moveTo(x1,topY);ctx.lineTo(x2,topY);if(path[i].type==='border'){ctx.setLineDash([6,4]);ctx.strokeStyle='#FFD700';ctx.lineWidth=4;}else{ctx.setLineDash([]);ctx.strokeStyle=segColors[i]||'#999';ctx.lineWidth=5;}ctx.stroke();}ctx.setLineDash([]);ctx.font='bold 11px "PingFang SC","Microsoft YaHei",sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';nodes.forEach((sn,i)=>{const x=pad+i*stepX,dn=simpToTradMap[sn]||sn,isTr=count>2&&i>0&&i<count-1,isBd=BORDER_STATIONS.has(sn);if(isBd){ctx.beginPath();ctx.arc(x,topY,7,0,2*Math.PI);ctx.fillStyle='#FFD700';ctx.fill();ctx.strokeStyle='#333';ctx.lineWidth=2;ctx.stroke();}else if(isTr){ctx.fillStyle='#333';ctx.fillRect(x-6,topY-6,12,12);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(x-6,topY-6,12,12);}else{ctx.beginPath();ctx.arc(x,topY,6,0,2*Math.PI);ctx.fillStyle=i===0?'#2e7d32':(i===count-1?'#c62828':'#333');ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();}const offY=i%2===0?-14:24;ctx.fillStyle='#333';ctx.fillText(dn,x,topY+offY);});}
+
+            function showTimeModal(lk,dir){const line=LINE_DATA[lk];if(!line||!line.schedule){alert('該線路暫無首末班車數據');return;}let tk='';if(dir===line.dirUp)tk='toUp';else if(dir===line.dirDown)tk='toDown';else{alert('方向錯誤');return;}const t=line.schedule[tk];if(!t){alert('暫無此方向時間');return;}const ov=document.createElement('div');ov.className='modal-overlay';ov.innerHTML=`<div class="modal-box"><h3>${line.name} · ${dir}方向</h3><div class="time-row"><span class="time-label">首班車：</span>${t.first}</div><div class="time-row"><span class="time-label">末班車：</span>${t.last}</div><div style="font-size:0.8em;color:#666;margin-top:8px;">※ 節假日可能延長運營</div><button class="close-btn" id="closeModal">關閉</button></div>`;document.body.appendChild(ov);ov.addEventListener('click',function(e){if(e.target===ov||e.target.id==='closeModal')document.body.removeChild(ov);});}
+
+            function render(data,fw,tw,fc,tc){const cont=document.getElementById('resultContainer'),err=document.getElementById('errorMsg'),legend=document.getElementById('legendBox');err.classList.remove('show');cont.classList.remove('show');cont.innerHTML='';if(!data.success){err.textContent=data.message||'查詢失敗';err.classList.add('show');legend.style.display='none';return;}const routes=data.routes;if(!routes.length){cont.innerHTML='<div style="background:#f0f7ff;padding:12px;border-radius:8px;">起點與終點相同</div>';cont.classList.add('show');legend.style.display='none';return;}legend.style.display='block';let wh='';if(fw||tw){wh+='<div class="weather-card">';if(fw)wh+=`<span class="weather-item">${getWeatherEmoji(fw.desc)} ${fc}：${fw.desc} ${fw.temp}°C</span>`;if(tw)wh+=`<span class="weather-item">${getWeatherEmoji(tw.desc)} ${tc}：${tw.desc} ${tw.temp}°C</span>`;wh+='</div>';}let html=wh;routes.forEach((item,idx)=>{const r=item.route,isDirect=item.type==='direct',title=isDirect?`🚆 方案${idx+1}：同線直達`:`🔄 方案${idx+1}：最短路線（需轉乘）`,badgeClass=isDirect?'badge-direct':'badge-transfer',badgeText=isDirect?'0次轉乘':`${r.path.length-1}次轉乘`;let totalMin=0;r.path.forEach(s=>{const avg=s.type==='border'?15:(LINE_DATA[s.lineKey]?.type?(TYPE_AVG_TIME[LINE_DATA[s.lineKey].type]||2.5):2.5);totalMin+=Math.round((s.count||0)*avg);});const totalTimeStr=totalMin<60?`約${totalMin}分鐘`:`約${Math.floor(totalMin/60)}小時${totalMin%60}分鐘`;html+=`<div class="option-block"><div class="option-title">${title}<span class="option-badge ${badgeClass}">${badgeText}</span><span style="font-size:0.9em;color:#666;">全程${r.totalStations}站 · ${totalTimeStr}</span></div><canvas class="route-diagram" height="140" style="width:100%;"></canvas>`;r.path.forEach((step,i)=>{if(step.type==='border'){html+=`<div class="step-card" style="background:#fff8e1;border-color:#FFD700;"><div class="step-header"><span class="line-badge" style="background:#FFD700;color:#333;">🛂口岸過關</span><span class="direction-tag">步行過關</span></div><div class="step-route"><strong>${simpToTradMap[step.startStation]||step.startStation}</strong> → <strong>${simpToTradMap[step.endStation]||step.endStation}</strong>（步行約${TYPE_AVG_TIME.border}分鐘）</div></div>`;}else{const transfer=i>0?`<span class="transfer-badge">🔁 在「${simpToTradMap[step.startStation]||step.startStation}」換乘</span>`:'';const timeEst=estimateTime(step);const timeEstHtml=timeEst?`<div class="time-estimate">⏱ 約${timeEst}</div>`:'';const timeBtn=LINE_DATA[step.lineKey]&&LINE_DATA[step.lineKey].schedule?`<button class="time-btn" data-line="${step.lineKey}" data-dir="${step.direction.replace(/"/g,'&quot;')}">🕒 首末班車</button>`:`<button class="time-btn" disabled style="opacity:0.5;">🕒 暫無數據</button>`;html+=`<div class="step-card"><div class="step-header"><span class="line-badge" style="background:${step.color};">${step.lineName}</span><span class="direction-tag">🚆 往「${step.direction}」方向</span>${transfer}</div><div class="step-route"><strong>${simpToTradMap[step.startStation]||step.startStation}</strong> → <strong>${simpToTradMap[step.endStation]||step.endStation}</strong> （${step.count}站）</div>${timeEstHtml}${timeBtn}</div>`;}});html+=`</div>`;});cont.innerHTML=html;cont.classList.add('show');cont.querySelectorAll('.time-btn:not([disabled])').forEach(btn=>{btn.addEventListener('click',function(){showTimeModal(this.dataset.line,this.dataset.dir);});});const canvases=cont.querySelectorAll('canvas.route-diagram');canvases.forEach((c,i)=>{if(routes[i])drawDiagram(routes[i].route,c);});}
+
+            function estimateTime(step){if(step.type==='border')return`${TYPE_AVG_TIME.border}分鐘（步行過關）`;const line=LINE_DATA[step.lineKey];if(!line||!line.type)return null;const avg=TYPE_AVG_TIME[line.type]||2.5;const total=Math.round(step.count*avg);if(total<1)return'少於1分鐘';if(total>=60){const h=Math.floor(total/60),m=total%60;return m>0?`${h}小時${m}分鐘`:`${h}小時`;}return`${total}分鐘`;}
+
+            async function fetchWeather(city){const url=`https://wttr.in/${encodeURIComponent(city)}?format=j1`;try{const r=await fetch(url);if(!r.ok)throw new Error('fail');const d=await r.json();const cur=d.current_condition[0];return{desc:cur.weatherDesc[0].value,temp:cur.temp_C};}catch(e){console.error(e);return null;}}
+
+            async function doSearch(){const fr=fromInp.value.trim(),tr=toInp.value.trim();const err=document.getElementById('errorMsg'),legend=document.getElementById('legendBox');err.classList.remove('show');if(!fr||!tr){err.textContent='請輸入出發站和目的站';err.classList.add('show');document.getElementById('resultContainer').classList.remove('show');legend.style.display='none';return;}const f=fromInp.dataset.simpValue||findStation(fr),t=toInp.dataset.simpValue||findStation(tr);let msgs=[];if(!f)msgs.push(`「${fr}」不是有效的站名`);if(!t)msgs.push(`「${tr}」不是有效的站名`);if(msgs.length){err.innerHTML=msgs.join('<br>');err.classList.add('show');document.getElementById('resultContainer').classList.remove('show');legend.style.display='none';return;}fromInp.value=simpToTradMap[f]||f;fromInp.dataset.simpValue=f;toInp.value=simpToTradMap[t]||t;toInp.dataset.simpValue=t;const data=getAllRoutes(f,t);const fc=getCityFromStation(f),tc=getCityFromStation(t);const[fw,tw]=await Promise.all([fetchWeather(fc),fetchWeather(tc)]);render(data,fw,tw,fc,tc);}
+
+            document.getElementById('searchBtn').addEventListener('click',doSearch);
+            document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement!==fromInp&&document.activeElement!==toInp)doSearch();});
+
+            const STATION_COORDS = {'罗湖(深圳)':[22.535,114.113],'落马洲':[22.515,114.068],'金钟':[22.279,114.165],'尖沙咀':[22.297,114.172],'佐敦':[22.305,114.170],'旺角':[22.319,114.169],'太子':[22.324,114.167],'九龙塘':[22.337,114.176],'大围':[22.373,114.178],'沙田':[22.383,114.189],'上水':[22.501,114.128],'福田口岸':[22.518,114.069],'深圳北站':[22.610,114.029],'广州南站':[22.990,113.270],'中山北':[22.516,113.382],'顺德':[22.842,113.245]};
+            function calcDistance(lat1,lon1,lat2,lon2){const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180,a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+            function findNearestStation(lat,lon){let min=Infinity,nearest=null;for(const[n,c]of Object.entries(STATION_COORDS)){const d=calcDistance(lat,lon,c[0],c[1]);if(d<min){min=d;nearest=n;}}return{station:nearest,distance:min.toFixed(1)};}
+            function locateUser(){const nb=document.getElementById('nearbyResult');nb.classList.remove('show');nb.innerHTML='定位中...';nb.classList.add('show');if(!navigator.geolocation){nb.innerHTML='瀏覽器不支援定位';return;}navigator.geolocation.getCurrentPosition(p=>{const{station,distance}=findNearestStation(p.coords.latitude,p.coords.longitude);if(station)nb.innerHTML=`📍 最近車站：${simpToTradMap[station]||station}（約 ${distance} 公里）`;else nb.innerHTML='附近沒有找到車站';},e=>{nb.innerHTML='無法取得位置，請檢查權限';},{enableHighAccuracy:true,timeout:10000,maximumAge:60000});}
+            document.getElementById('nearbyBtn').addEventListener('click',locateUser);
+        })();
+    </script>
+</body>
+</html>
